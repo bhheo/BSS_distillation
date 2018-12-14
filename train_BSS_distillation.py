@@ -19,7 +19,7 @@ from models import *
 dataset_name = 'CIFAR-10'
 res_folder = 'results/BSS_distillation_80epoch_res8_C10'
 temperature = 3
-gpu_num = 1
+gpu_num = 0
 attack_size = 64
 max_epoch = 80
 
