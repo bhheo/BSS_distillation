@@ -1,11 +1,11 @@
 '''Train CIFAR10 with PyTorch.'''
 from __future__ import print_function
 
-import argparse
 import os
 import time
 
 import numpy as np
+import torch
 import torch.backends.cudnn as cudnn
 import torch.optim as optim
 import torchvision
@@ -15,6 +15,7 @@ import attacks
 
 from models import *
 
+# Parameters
 dataset_name = 'CIFAR-10'
 res_folder = 'results/BSS_distillation_80epoch_res8_C10'
 temperature = 3
@@ -27,7 +28,7 @@ if not os.path.isdir(res_folder):
 
 use_cuda = torch.cuda.is_available()
 
-# Data
+# Dataset
 if dataset_name is 'CIFAR-10':
     # CIFAR-10
     print('==> Preparing data..')
@@ -51,18 +52,16 @@ if dataset_name is 'CIFAR-10':
 else:
     raise Exception('Undefined Dataset')
 
-# Model
-if dataset_name is 'CIFAR-10':
-    t_net = torch.load('./results/Res26_zero_init_C10/320_epoch.t7', map_location=lambda storage, loc: storage.cuda(0))['net']
-    BN_version_fix(t_net)
-    state_t = t_net.state_dict()
-    teacher = ResNet26_zero()
-    teacher.load_state_dict(state_t)
+# Teacher network
+teacher = torch.load('./results/Res26_C10/320_epoch.t7', map_location=lambda storage, loc: storage.cuda(0))['net']
+BN_version_fix(teacher)
+state_t = teacher.state_dict()
+t_net = ResNet26()
+t_net.load_state_dict(state_t)
 
-    student = ResNet8_zero()
+# Student network
+s_net = ResNet8()
 
-t_net = Distill_ResNet_Simple(teacher)
-s_net = Distill_ResNet_Simple(student)
 
 if use_cuda:
     torch.cuda.set_device(gpu_num)
@@ -70,13 +69,14 @@ if use_cuda:
     s_net.cuda()
     cudnn.benchmark = True
 
+# Proposed adversarial attack algorithm (BSS)
 attack = attacks.AttackBSS(targeted=True, num_steps=10, max_epsilon=16, step_alpha=0.3, cuda=True, norm=2)
 
 criterion_MSE = nn.MSELoss(size_average=False)
 criterion_CE = nn.CrossEntropyLoss()
 
 # Training
-def train_attack_CE(t_net, s_net, ratio, ratio_attack, epoch):
+def train_attack_KD(t_net, s_net, ratio, ratio_attack, epoch):
     epoch_start_time = time.time()
     print('\nStage 1 Epoch: %d' % epoch)
     s_net.train()
@@ -94,30 +94,33 @@ def train_attack_CE(t_net, s_net, ratio, ratio_attack, epoch):
         optimizer.zero_grad()
         inputs, targets = Variable(inputs), Variable(targets)
 
-        outputs = s_net(inputs)
+        out_s = s_net(inputs)
 
         # Cross-entropy loss
-        loss = criterion_CE(outputs[0:batch_size1, :], targets)
-        t_net(inputs)
+        loss = criterion_CE(out_s[0:batch_size1, :], targets)
+        out_t = t_net(inputs)
 
         # KD loss
-        loss += - ratio * (F.softmax(t_net.out/temperature, 1).detach() * F.log_softmax(s_net.out/temperature, 1)).sum() / batch_size1
+        loss += - ratio * (F.softmax(out_t/temperature, 1).detach() * F.log_softmax(out_s/temperature, 1)).sum() / batch_size1
 
         if ratio_attack > 0:
 
-            attack_flag = targets.data == t_net.out.sort(dim=1, descending=True)[1][:, 0].data
+            condition1 = targets.data == out_t.sort(dim=1, descending=True)[1][:, 0].data
+            condition2 = targets.data == out_s.sort(dim=1, descending=True)[1][:, 0].data
+
+            attack_flag = condition1 & condition2
 
             if attack_flag.sum():
                 # Base sample selection
                 attack_idx = attack_flag.nonzero().squeeze()
                 if attack_idx.shape[0] > attack_size:
-                    diff = (F.softmax(t_net.out[attack_idx,:], 1).data - F.softmax(s_net.out[attack_idx,:], 1).data) ** 2
+                    diff = (F.softmax(out_t[attack_idx,:], 1).data - F.softmax(out_s[attack_idx,:], 1).data) ** 2
                     distill_score = diff.sum(dim=1) - diff.gather(1, targets[attack_idx].data.unsqueeze(1)).squeeze()
                     attack_idx = attack_idx[distill_score.sort(descending=True)[1][:attack_size]]
 
                 # Target class sampling
-                attack_class = t_net.out.sort(dim=1, descending=True)[1][:, 1][attack_idx].data
-                class_score, class_idx = F.softmax(t_net.out, 1)[attack_idx, :].data.sort(dim=1, descending=True)
+                attack_class = out_t.sort(dim=1, descending=True)[1][:, 1][attack_idx].data
+                class_score, class_idx = F.softmax(out_t, 1)[attack_idx, :].data.sort(dim=1, descending=True)
                 class_score = class_score[:, 1:]
                 class_idx = class_idx[:, 1:]
 
@@ -137,13 +140,13 @@ def train_attack_CE(t_net, s_net, ratio, ratio_attack, epoch):
                 s_net(attacked_inputs)
 
                 # KD loss for Boundary Supporting Samples (BSS)
-                loss += - ratio_attack * (F.softmax(t_net.out / temperature, 1).detach() * F.log_softmax(s_net.out / temperature, 1)).sum() / batch_size2
+                loss += - ratio_attack * (F.softmax(out_t / temperature, 1).detach() * F.log_softmax(out_s / temperature, 1)).sum() / batch_size2
 
         loss.backward()
         optimizer.step()
 
         train_loss += loss.data.item()
-        _, predicted = torch.max(outputs[0:batch_size1, :].data, 1)
+        _, predicted = torch.max(out_s[0:batch_size1, :].data, 1)
         total += targets.size(0)
         correct += predicted.eq(targets.data).cpu().float().sum()
         b_idx = batch_idx
@@ -196,7 +199,7 @@ for epoch in range(1, max_epoch+1):
     ratio = max(3 * (1 - epoch / max_epoch), 0) + 1
     attack_ratio = max(2 * (1 - 4 / 3 * epoch / max_epoch), 0) + 0
 
-    train_attack_CE(t_net, s_net, ratio, attack_ratio, epoch)
+    train_attack_KD(t_net, s_net, ratio, attack_ratio, epoch)
 
     test(s_net, epoch, save=True)
 

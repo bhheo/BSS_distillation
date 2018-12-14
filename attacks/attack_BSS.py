@@ -19,9 +19,8 @@ class AttackBSS:
             if norm == float('inf'):
                 self.step_alpha = self.eps / self.num_steps
             else:
-                # Different scaling required for L2 and L1 norms to get anywhere
                 if norm == 1:
-                    self.step_alpha = 500.0  # L1 needs a lot of (arbitrary) love
+                    self.step_alpha = 500.0
                 else:
                     self.step_alpha = 1.0
         else:
