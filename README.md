@@ -23,8 +23,16 @@ Pre-trained teacher network (ResNet 26) is included.
 
 ## Citation
 
-Byeongho Heo, Minsik Lee, Sangdoo Yun, Jin Young Choi, "Knowledge Distillation with Adversarial Samples Supporting Decision Boundary", CoRR, 2018. (AAAI at 2019 Feb.)
+```
+@inproceedings{ABdistill,
+	title = {Knowledge Transfer via Distillation of Activation Boundaries Formed by Hidden Neurons},
+	author = {Byeongho Heo, Minsik Lee, Sangdoo Yun, Jin Young Choi},
+	booktitle = {AAAI},
+	year = {2019}
+}
+```
 
-``
+Byeongho Heo, Minsik Lee, Sangdoo Yun, Jin Young Choi, "Knowledge Distillation with Adversarial Samples Supporting Decision Boundary", CoRR, 2018. (AAAI at Feb. 2019)
+
 
 
