@@ -33,7 +33,3 @@ Byeongho Heo, Minsik Lee, Sangdoo Yun, Jin Young Choi, "Knowledge Distillation w
 	year = {2019}
 }
 ```
-
-
-
-
