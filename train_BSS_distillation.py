@@ -19,7 +19,7 @@ from models import *
 dataset_name = 'CIFAR-10'
 res_folder = 'results/BSS_distillation_80epoch_res8_C10'
 temperature = 3
-gpu_num = 0
+gpu_num = 1
 attack_size = 64
 max_epoch = 80
 
@@ -53,11 +53,9 @@ else:
     raise Exception('Undefined Dataset')
 
 # Teacher network
-teacher = torch.load('./results/Res26_C10/320_epoch.t7', map_location=lambda storage, loc: storage.cuda(0))['net']
-BN_version_fix(teacher)
-state_t = teacher.state_dict()
+teacher = BN_version_fix(torch.load('./results/Res26_C10/320_epoch.t7', map_location=lambda storage, loc: storage.cuda(0))['net'])
 t_net = ResNet26()
-t_net.load_state_dict(state_t)
+t_net.load_state_dict(teacher.state_dict())
 
 # Student network
 s_net = ResNet8()
@@ -136,11 +134,11 @@ def train_attack_KD(t_net, s_net, ratio, ratio_attack, epoch):
                 attacked_inputs = Variable(attack.run(t_net, inputs[attack_idx, :, :, :].data, attack_class))
                 batch_size2 = attacked_inputs.shape[0]
 
-                t_net(attacked_inputs)
-                s_net(attacked_inputs)
+                attack_out_t = t_net(attacked_inputs)
+                attack_out_s = s_net(attacked_inputs)
 
                 # KD loss for Boundary Supporting Samples (BSS)
-                loss += - ratio_attack * (F.softmax(out_t / temperature, 1).detach() * F.log_softmax(out_s / temperature, 1)).sum() / batch_size2
+                loss += - ratio_attack * (F.softmax(attack_out_t / temperature, 1).detach() * F.log_softmax(attack_out_s / temperature, 1)).sum() / batch_size2
 
         loss.backward()
         optimizer.step()
