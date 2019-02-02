@@ -4,6 +4,7 @@ Official Pytorch implementation of paper:
 
 [Knowledge Distillation with Adversarial Samples Supporting Decision Boundary](https://arxiv.org/abs/1805.05532) (AAAI 2019).
 
+Sporlight and poster are available on [homepage](https://sites.google.com/view/byeongho-heo/home)
 
 ## Environment
 Python 3.6, Pytorch 0.4.1, Torchvision
@@ -22,8 +23,6 @@ Pre-trained teacher network (ResNet 26) is included.
 
 
 ## Citation
-
-Byeongho Heo, Minsik Lee, Sangdoo Yun, Jin Young Choi, "Knowledge Distillation with Adversarial Samples Supporting Decision Boundary", CoRR, 2018. (AAAI at Feb. 2019)
 
 ```
 @inproceedings{BSSdistill,
