@@ -28,7 +28,7 @@ Pre-trained teacher network (ResNet 26) is included.
 @inproceedings{BSSdistill,
 	title = {Knowledge Distillation with Adversarial Samples Supporting Decision Boundary},
 	author = {Byeongho Heo, Minsik Lee, Sangdoo Yun, Jin Young Choi},
-	booktitle = {AAAI},
+	booktitle = {AAAI Conference on Artificial Intelligence (AAAI)},
 	year = {2019}
 }
 ```
